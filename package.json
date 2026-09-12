@@ -1,0 +1,42 @@
+{
+  "name": "invoice-print-helper",
+  "version": "1.0.0",
+  "description": "电子发票批量打印助手",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron .",
+    "build": "electron-builder"
+  },
+  "keywords": [
+    "electron",
+    "invoice",
+    "pdf",
+    "print"
+  ],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^31.0.0",
+    "electron-builder": "^24.0.0"
+  },
+  "dependencies": {
+    "adm-zip": "^0.5.16",
+    "easyofd": "^1.2.1",
+    "html2canvas": "^1.4.1",
+    "mupdf": "^1.28.1",
+    "pdf-lib": "^1.17.1",
+    "pdfjs-dist": "^4.4.168"
+  },
+  "build": {
+    "appId": "com.invoice.print.helper",
+    "productName": "发票打印助手",
+    "win": {
+      "target": "nsis",
+      "icon": "app.ico"
+    },
+    "mac": {
+      "target": "dmg"
+    }
+  }
+}
