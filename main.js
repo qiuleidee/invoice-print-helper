@@ -150,6 +150,7 @@ ipcMain.handle('files:resolve', async (_, filePaths) => {
   return resolveFiles(filePaths)
 })
 
+
 // ─── 工具：检查是否为图片格式 ────────────────────────────
 function isImageFile(filePath) {
   return IMAGE_EXTS.includes(path.extname(filePath).toLowerCase())
@@ -294,6 +295,41 @@ ipcMain.handle('pdf:renderPage', async (_, { filePath, pageIndex, dpi }) => {
     }
   } catch (e) {
     console.error('[mupdf render error]', e.message)
+    return { ok: false, error: e.message }
+  }
+})
+
+// ─── IPC: 使用 mupdf 提取 PDF 纯文本 ──────────────────────
+// 由于 pdfjs 在处理部分带有自建字体子集的发票时，会将 00 错误映射为 88，
+// 我们转而使用 mupdf 提取结构化文本以确保精准度。
+ipcMain.handle('pdf:extractText', async (_, { filePath, pageIndex }) => {
+  try {
+    const mupdf = await getMupdf()
+    const bytes = fs.readFileSync(filePath)
+    const doc = mupdf.Document.openDocument(bytes, 'application/pdf')
+    const page = doc.loadPage(pageIndex)
+    
+    // 使用 asJSON 获取结构化文本
+    const stext = page.toStructuredText()
+    const textData = JSON.parse(stext.asJSON())
+    
+    // 展平所有文本块
+    let rawText = ''
+    if (textData.blocks) {
+      for (const block of textData.blocks) {
+        if (block.type === 'text' && block.lines) {
+          for (const line of block.lines) {
+            if (line.chars) {
+              rawText += line.chars.map(c => typeof c.c === 'number' ? String.fromCodePoint(c.c) : c.c).join('')
+            }
+          }
+        }
+      }
+    }
+    
+    return { ok: true, text: rawText }
+  } catch (e) {
+    console.error('[mupdf extract error]', e.message)
     return { ok: false, error: e.message }
   }
 })
@@ -515,28 +551,44 @@ ipcMain.handle('pdf:export', async (_, { pdfBase64, defaultName }) => {
   }
 })
 
-// ─── IPC: 打印 PDF ────────────────────────────────────────
+// ─── IPC: 打印 PDF ──────────────────────────────────────
+let globalPrintWin = null
+
 ipcMain.handle('pdf:print', async (_, { pdfBase64 }) => {
   try {
     const tmpPath = path.join(app.getPath('temp'), 'invoice_print_output.pdf')
     fs.writeFileSync(tmpPath, Buffer.from(pdfBase64, 'base64'))
 
-    // 用隐藏窗口加载 PDF 后调用打印
-    const printWin = new BrowserWindow({ show: false, webPreferences: { sandbox: false } })
-    await printWin.loadFile(tmpPath)
+    if (!globalPrintWin || globalPrintWin.isDestroyed()) {
+      globalPrintWin = new BrowserWindow({ show: false, webPreferences: { sandbox: false } })
+    }
 
-    await new Promise((resolve, reject) => {
-      printWin.webContents.print({ silent: false, printBackground: true }, (success, reason) => {
-        printWin.destroy()
-        if (success) resolve()
-        else reject(new Error(reason || '用户取消打印或打印机错误'))
+    return await new Promise((resolve, reject) => {
+      // 每次加载前清除之前的事件监听，避免重复绑定
+      globalPrintWin.webContents.removeAllListeners('did-finish-load')
+      
+      globalPrintWin.webContents.on('did-finish-load', () => {
+        setTimeout(() => {
+          // Electron 31 的 print() 不接受 callback 也不返回 Promise
+          // 因此我们调用后立刻向前端 resolve，窗口不会被销毁以保证打印进程不被掐断
+          try {
+            globalPrintWin.webContents.print({ silent: false, printBackground: true })
+            resolve({ ok: true })
+          } catch (err) {
+            resolve({ ok: false, error: err.message })
+          }
+        }, 800)
+      })
+      
+      globalPrintWin.loadFile(tmpPath).catch(e => {
+        resolve({ ok: false, error: e.message })
       })
     })
-    return { ok: true }
   } catch (e) {
     return { ok: false, error: e.message }
   }
 })
+
 
 // ─── IPC: 在文件夹中显示文件 ─────────────────────────────
 ipcMain.handle('shell:showFile', async (_, filePath) => {

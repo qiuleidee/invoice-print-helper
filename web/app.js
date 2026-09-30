@@ -633,12 +633,16 @@ dropZone.addEventListener('drop', async e => {
   dropZone.classList.remove('drag-over')
   const rawPaths = []
   if (e.dataTransfer.files?.length) {
-    for (const f of e.dataTransfer.files) { if (f.path) rawPaths.push(f.path) }
+    for (const f of e.dataTransfer.files) { 
+      if (f.name.toLowerCase().endsWith('.pdf') || (typeof isImageFile !== 'undefined' && isImageFile(f.name)) || isInvoiceImageFile(f.name)) {
+        rawPaths.push(window.registerFile ? window.registerFile(f) : f.path || f.name)
+      }
+    }
   }
-  if (!rawPaths.length) { showError('未获取到文件路径，请点击"选择文件"按钮'); return }
+  if (!rawPaths.length) { showError('未获取到支持的发票文件'); return }
   try {
     const resolved = await window.electronAPI.resolveFiles(rawPaths)
-    if (!resolved.length) { showError('未找到 PDF 文件'); return }
+    if (!resolved.length) { showError('未找到可用的文件'); return }
     await importFiles(resolved)
   } catch (e) { showError('导入失败：' + e.message) }
 })

@@ -5,7 +5,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta http-equiv="Content-Security-Policy"
-    content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data: blob:; worker-src blob:;" />
+    content="default-src 'self' https: 'unsafe-inline' 'unsafe-eval' blob: data:;" />
   <title>发票打印助手</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link
@@ -28,7 +28,7 @@
         </svg>
       </div>
       <div>
-        <h1 class="app-title">发票打印助手 V1.2 By.邱磊</h1>
+        <h1 class="app-title">发票打印助手web版 V1.4 By.邱磊</h1>
         <p class="app-subtitle">快捷电子发票批量拼版打印</p>
       </div>
     </div>
@@ -338,8 +338,18 @@
   </div>
 
 
+  <!-- 隐藏的文件输入组件 -->
+  <input type="file" id="fileInput" multiple accept=".pdf,image/*" style="display:none;" />
+  <input type="file" id="folderInput" webkitdirectory directory multiple style="display:none;" />
 
-  <script src="index.js"></script>
+  <!-- 引入 PDF 拼版库 -->
+  <script src="https://unpkg.com/pdf-lib@1.17.1/dist/pdf-lib.min.js"></script>
+  <!-- 引入 PDF.js 用于前台高清渲染 -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+
+  <!-- 引入纯浏览器端能力转换层 -->
+  <script src="electronAPI-shim.js"></script>
+  <script src="app.js"></script>
 </body>
 
 </html>
